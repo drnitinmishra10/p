@@ -12,7 +12,7 @@
         }
 
         :root {
-            /* अधिक जीवंत और आध्यात्मिक रंग (Vibrant & Spiritual Palette) */
+            /* आध्यात्मिक एवं जीवंत रंग पैलेट (Vibrant & Spiritual Palette) */
             --primary: #ff6f00;         /* गहरा सिंदूरी/नारंगी (Deep Saffron) */
             --primary-hover: #e65100;   /* डार्क ऑरेंज */
             --secondary: #d48100;       /* स्वर्णिम आभा (Golden Amber) */
@@ -28,7 +28,6 @@
 
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            /* अधिक रंगीन ग्रेडिएंट बैकग्राउंड */
             background: linear-gradient(135deg, var(--bg-dark) 0%, #3e103f 40%, #5d1622 75%, #1a0933 100%);
             background-attachment: fixed;
             color: var(--text);
@@ -66,7 +65,6 @@
         h1 {
             font-size: clamp(2.2rem, 6vw, 4rem);
             font-weight: 900;
-            /* भव्य स्वर्ण और सिंदूरी रंगों का मेल */
             background: linear-gradient(135deg, #ffffff 10%, #ffe082 40%, var(--primary) 70%, #ff1744 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -476,11 +474,11 @@
 
     let allPapers = [];
 
-    // Extract title from HTML content
+    // 1. HTML कंटेंट से वास्तविक <title> निकालना
     async function getPageTitle(url) {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
+            const timeout = setTimeout(() => controller.abort(), 4000);
             
             const response = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
@@ -498,7 +496,8 @@
         }
     }
 
-    // Strategy 1: Try to fetch directory listing (works on some servers)
+    // 2. व्यापक डायरेक्टरी स्कैनिंग (सर्वर और लोकल होस्ट इंडेक्स के लिए)
+    // यह सर्वर इंडेक्स से बिना किसी नाम की पाबंदी के हर .html फ़ाइल को ढूँढता है
     async function fetchDirectoryListing() {
         try {
             const response = await fetch('./');
@@ -513,9 +512,12 @@
             
             links.forEach(link => {
                 const href = link.getAttribute('href');
-                if (href && href.endsWith('.html') && href !== 'index.html' && !href.startsWith('http')) {
+                if (href && (href.endsWith('.html') || href.endsWith('.htm')) && 
+                    href !== 'index.html' && !href.startsWith('http') && !href.startsWith('//')) {
+                    
+                    const decodedName = decodeURIComponent(href);
                     htmlFiles.push({
-                        name: href.replace('.html', '').replace(/-/g, ' ').replace(/_/g, ' '),
+                        name: decodedName.replace(/\.html?/, '').replace(/-/g, ' ').replace(/_/g, ' '),
                         file: href,
                         title: null
                     });
@@ -528,64 +530,7 @@
         }
     }
 
-    // Strategy 2: Probe for common HTML files
-    async function probeForFiles() {
-        const commonNames = [
-            'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10',
-            'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 'c17', 'c18', 'c19', 'c20',
-            'paper1', 'paper2', 'paper3', 'paper4', 'paper5',
-            'research1', 'research2', 'research3',
-            'publication1', 'publication2', 'publication3',
-            'index', 'about', 'contact', 'cv', 'resume',
-            'project1', 'project2', 'project3',
-            'thesis', 'dissertation', 'monograph'
-        ];
-        
-        const extensions = ['.html', '.htm'];
-        const found = [];
-        
-        const batchSize = 5;
-        for (let i = 0; i < commonNames.length; i += batchSize) {
-            const batch = commonNames.slice(i, i + batchSize);
-            const checks = batch.flatMap(name => 
-                extensions.map(ext => checkFileExists(`${name}${ext}`))
-            );
-            
-            const results = await Promise.all(checks);
-            
-            results.forEach((result, idx) => {
-                if (result.exists) {
-                    const fileName = batch[Math.floor(idx / extensions.length)] + extensions[idx % extensions.length];
-                    found.push({
-                        name: fileName.replace(/\.html?/, '').replace(/-/g, ' ').replace(/_/g, ' '),
-                        file: fileName,
-                        title: null
-                    });
-                }
-            });
-        }
-        
-        return found;
-    }
-
-    async function checkFileExists(url) {
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 3000);
-            
-            const response = await fetch(url, { 
-                method: 'HEAD',
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeout);
-            return { exists: response.ok, url };
-        } catch (error) {
-            return { exists: false, url };
-        }
-    }
-
-    // Strategy 3: If GitHub Pages, try API
+    // 3. यदि रिपोजिटरी GitHub Pages पर है, तो पूरे रिपो की सूची बिना नाम की पाबंदी के मंगाना
     async function fetchGitHubFiles() {
         const hostname = window.location.hostname;
         if (!hostname.includes('github.io')) return [];
@@ -600,14 +545,61 @@
             
             const data = await response.json();
             return data
-                .filter(item => item.name.endsWith('.html') && item.name !== 'index.html')
+                .filter(item => (item.name.endsWith('.html') || item.name.endsWith('.htm')) && item.name !== 'index.html')
                 .map(item => ({
-                    name: item.name.replace('.html', '').replace(/-/g, ' ').replace(/_/g, ' '),
+                    name: decodeURIComponent(item.name).replace(/\.html?/, '').replace(/-/g, ' ').replace(/_/g, ' '),
                     file: item.name,
                     title: null
                 }));
         } catch (e) {
             return [];
+        }
+    }
+
+    // 4. बैकअप हाइब्रिड प्रोबिंग (यदि सर्वर इंडेक्सिंग सुरक्षा कारणों से बंद हो)
+    async function probeForFiles() {
+        const found = [];
+        const checks = [];
+        
+        // सीरीज़ आधारित नाम चेकिंग की रेंज बढ़ा दी गई है (c1 से c30, paper1 से paper20)
+        for (let i = 1; i <= 30; i++) {
+            checks.push(`c${i}.html`);
+            checks.push(`paper${i}.html`);
+            checks.push(`mantra${i}.html`);
+        }
+        
+        const extraNames = ['about.html', 'contact.html', 'research.html', 'vashikaran.html', 'index(3).html'];
+        const allChecks = [...checks, ...extraNames];
+
+        const batchSize = 10;
+        for (let i = 0; i < allChecks.length; i += batchSize) {
+            const batch = allChecks.slice(i, i + batchSize);
+            const promises = batch.map(file => checkFileExists(file));
+            const results = await Promise.all(promises);
+            
+            results.forEach(res => {
+                if (res.exists) {
+                    found.push({
+                        name: decodeURIComponent(res.url).replace(/\.html?/, '').replace(/-/g, ' ').replace(/_/g, ' '),
+                        file: res.url,
+                        title: null
+                    });
+                }
+            });
+        }
+        
+        return found;
+    }
+
+    async function checkFileExists(url) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            const response = await fetch(url, { method: 'HEAD', signal: controller.signal });
+            clearTimeout(timeout);
+            return { exists: response.ok, url };
+        } catch (error) {
+            return { exists: false, url };
         }
     }
 
@@ -619,7 +611,6 @@
     }
 
     function getPaperIcon(name) {
-        // आध्यात्मिक और वैदिक प्रतीकों से जुड़े प्रतीक चिन्ह
         const icons = ['🔱', '🕉️', '✨', '📖', '🧘', '🌸', '☀️', '🔮', '💡', '📝'];
         let hash = 0;
         for (let i = 0; i < name.length; i++) {
@@ -628,6 +619,7 @@
         return icons[Math.abs(hash) % icons.length];
     }
 
+    // मुख्य रेंडरर फंक्शन
     async function renderPapers(papers) {
         papersGrid.innerHTML = '';
         
@@ -635,8 +627,8 @@
             papersGrid.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">📂</div>
-                    <h3>कोई फाइल नहीं मिली</h3>
-                    <p>इस रिपोजिटरी में कोई भी मंत्र या शोध पत्र नहीं मिला। कृपया प्रदर्शित करने के लिए HTML फाइलें जोड़ें।</p>
+                    <h3>कोई फ़ाइल नहीं मिली</h3>
+                    <p>डायरेक्टरी स्कैन में कोई भी .html फ़ाइल नहीं मिल सकी। प्रदर्शित करने के लिए फाइलें इसी फोल्डर में जोड़ें।</p>
                 </div>
             `;
             paperCountEl.textContent = '0';
@@ -644,29 +636,22 @@
             return;
         }
 
-        // Fetch titles for all papers in parallel
-        const titlePromises = papers.map(async (paper) => {
-            const title = await getPageTitle(paper.file);
-            paper.title = title || formatTitle(paper.name);
-            return paper;
-        });
+        paperCountEl.textContent = papers.length;
+        fileCountEl.textContent = papers.length;
 
-        allPapers = await Promise.all(titlePromises);
-        
-        paperCountEl.textContent = allPapers.length;
-        fileCountEl.textContent = allPapers.length;
-
-        allPapers.forEach((paper, index) => {
+        // यूज़र इंटरफ़ेस को तेज़ रखने के लिए पहले बिना टाइटल्स के तुरंत रेंडर करें
+        papers.forEach((paper, index) => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.style.animationDelay = `${index * 0.05}s`;
+            card.id = `card-${index}`;
+            card.style.animationDelay = `${index * 0.03}s`;
             
-            const displayTitle = paper.title || formatTitle(paper.name);
+            const displayTitle = formatTitle(paper.name);
             const icon = getPaperIcon(paper.name);
             
             card.innerHTML = `
                 <div class="card-icon">${icon}</div>
-                <h2>${displayTitle}</h2>
+                <h2 class="title-text">${displayTitle}</h2>
                 <div class="card-meta">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -674,7 +659,7 @@
                     </svg>
                     <span>${paper.file}</span>
                 </div>
-                <p>${displayTitle}</p>
+                <p class="desc-text">${displayTitle}</p>
                 <div class="card-footer">
                     <a class="btn" href="${paper.file}" target="_blank" rel="noopener noreferrer">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -693,11 +678,27 @@
                     </a>
                 </div>
             `;
-            
             papersGrid.appendChild(card);
+        });
+
+        // बैकग्राउंड में एसिंक्रोनस रूप से <title> लोड करके यूआई को रियल-टाइम अपडेट करना
+        allPapers = [...papers];
+        papers.forEach(async (paper, index) => {
+            const realTitle = await getPageTitle(paper.file);
+            if (realTitle) {
+                allPapers[index].title = realTitle;
+                const cardEl = document.getElementById(`card-${index}`);
+                if (cardEl) {
+                    cardEl.querySelector('.title-text').textContent = realTitle;
+                    cardEl.querySelector('.desc-text').textContent = realTitle;
+                }
+            } else {
+                allPapers[index].title = formatTitle(paper.name);
+            }
         });
     }
 
+    // लाइव सर्च / फ़िल्टर फ़ंक्शन
     function filterPapers(query) {
         const filtered = allPapers.filter(paper => 
             (paper.title && paper.title.toLowerCase().includes(query.toLowerCase())) ||
@@ -712,7 +713,7 @@
                 <div class="empty-state">
                     <div class="empty-icon">🔍</div>
                     <h3>कोई परिणाम नहीं मिला</h3>
-                    <p>आपके खोज शब्द से मेल खाता हुआ कोई मंत्र या फाइल नहीं मिली।</p>
+                    <p>आपके खोज शब्द से मेल खाती कोई फ़ाइल नहीं मिली।</p>
                 </div>
             `;
             return;
@@ -721,8 +722,6 @@
         filtered.forEach((paper, index) => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.style.animationDelay = `${index * 0.05}s`;
-            
             const displayTitle = paper.title || formatTitle(paper.name);
             const icon = getPaperIcon(paper.name);
             
@@ -755,23 +754,26 @@
                     </a>
                 </div>
             `;
-            
             papersGrid.appendChild(card);
         });
     }
 
+    // लोडिंग आर्किटेक्चर (Sequential Execution Pipeline)
     async function loadPapers() {
+        // स्ट्रेटेजी 1: डायरेक्टरी रूट स्कैन (नामों की पाबंदी के बिना)
         let papers = await fetchDirectoryListing();
         
+        // स्ट्रेटेजी 2: यदि लाइव सर्वर इंडेक्स खाली है, तो GitHub Pages API चेक करें
         if (papers.length === 0) {
             papers = await fetchGitHubFiles();
         }
         
+        // स्ट्रेटेजी 3: बैकअप के लिए व्यापक रेंज हाइब्रिड प्रोबिंग
         if (papers.length === 0) {
             papers = await probeForFiles();
         }
         
-        // Remove duplicates based on filename
+        // डुप्लिकेट हटाना
         const seen = new Set();
         papers = papers.filter(paper => {
             if (seen.has(paper.file)) return false;
@@ -779,18 +781,18 @@
             return true;
         });
         
-        // Sort alphabetically by filename
+        // वर्णानुक्रम (Alphabetical order) में लगाना
         papers.sort((a, b) => a.file.localeCompare(b.file));
         
         await renderPapers(papers);
     }
 
-    // Search functionality
+    // सर्च बॉक्स ट्रिगर
     searchInput.addEventListener('input', (e) => {
         filterPapers(e.target.value);
     });
 
-    // Initial load
+    // इनिशियलाइज़ेशन
     loadPapers();
 </script>
 
